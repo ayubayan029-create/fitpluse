@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FitPulse - Advanced Exercise & Habit Tracker</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="ChatGPT Image Sep 15, 2026, 07_30_50 PM.png">
+</head>
+<body>
+  <!-- Epic Animated Canvas Splash Screen -->
+  <div class="intro-animation" id="introAnimation" aria-label="Consistency beats talent. Let's build your legacy 🔥">
+    <canvas id="introCanvas"></canvas>
+    <div class="intro-content">
+      <div class="intro-badge">FITPULSE PERFORMANCE</div>
+      <p class="intro-line" id="introLine"></p>
+      <div class="intro-sub">Building momentum, one day at a time</div>
+    </div>
+  </div>
+
+  <main class="app">
+    <!-- Top Header / Navigation -->
+    <header class="hero">
+      <div class="brand">
+        <div class="logo-icon">⚡</div>
+        <div>
+          <p class="eyebrow">PERSONAL PERFORMANCE SUITE</p>
+          <h1>FitPulse Tracker</h1>
+          <p class="subtitle">Build unbreakable habits, track metrics, and analyze your progress.</p>
+        </div>
+      </div>
+      <div class="header-controls">
+        <div class="today-pill" id="todayPill"></div>
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+          <span class="theme-icon" id="themeIcon">🌙</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Routine Selector Tabs -->
+    <section class="routine-bar">
+      <div class="routine-tabs" id="routineTabs">
+        <!-- Dynamic Tabs -->
+      </div>
+      <button class="secondary-btn add-routine-btn" id="addRoutineBtn">+ New Routine</button>
+    </section>
+
+    <!-- Key Metrics Dashboard -->
+    <section class="dashboard">
+      <div class="card streak-card">
+        <div class="card-top">
+          <span class="icon">🔥</span>
+          <span class="label">CURRENT STREAK</span>
+        </div>
+        <div class="big-number" id="currentStreak">0</div>
+        <p>days in a row</p>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <span class="icon">🏆</span>
+          <span class="label">LONGEST STREAK</span>
+        </div>
+        <div class="big-number" id="longestStreak">0</div>
+        <p>personal best</p>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <span class="icon">📅</span>
+          <span class="label">TOTAL DAYS</span>
+        </div>
+        <div class="big-number" id="totalDays">0</div>
+        <p>completed workouts</p>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <span class="icon">🎯</span>
+          <span class="label">COMPLETION RATE</span>
+        </div>
+        <div class="big-number" id="completionRate">0%</div>
+        <p>this month</p>
+      </div>
+    </section>
+
+    <!-- Badges & Achievements System -->
+    <section class="card badges-card">
+      <div class="section-heading">
+        <div>
+          <p class="label">MILESTONES & ACHIEVEMENTS</p>
+          <h2>Earned Badges</h2>
+        </div>
+        <span class="badge-count" id="badgeCount">0 / 6 Unlocked</span>
+      </div>
+      <div class="badges-grid" id="badgesGrid">
+        <!-- Dynamically Rendered Badges -->
+      </div>
+    </section>
+
+    <!-- Health Metrics Snapshot -->
+    <section class="card health-card">
+      <div class="section-heading">
+        <div>
+          <p class="label">HEALTH SNAPSHOT</p>
+          <h2>Daily Vital Metrics</h2>
+        </div>
+        <span class="backup-badge">AUTO-SAVED</span>
+      </div>
+      <p class="muted health-description">Track physical parameters to contextualize your performance trends over time.</p>
+      <div class="health-grid">
+        <div class="metric-field">
+          <label for="heightInput">📏 Height</label>
+          <div class="metric-input">
+            <input id="heightInput" type="number" min="50" max="250" step="0.1" placeholder="e.g. 175">
+            <span>cm</span>
+          </div>
+        </div>
+
+        <div class="metric-field">
+          <label for="weightInput">⚖️ Weight</label>
+          <div class="metric-input">
+            <input id="weightInput" type="number" min="20" max="300" step="0.1" placeholder="e.g. 70">
+            <span>kg</span>
+          </div>
+        </div>
+
+        <div class="metric-field">
+          <label for="stepsInput">👟 Daily Steps</label>
+          <div class="metric-input">
+            <input id="stepsInput" type="number" min="0" max="100000" step="1" placeholder="e.g. 10000">
+            <span>steps</span>
+          </div>
+        </div>
+
+        <div class="metric-field">
+          <label for="sleepInput">😴 Rest & Sleep</label>
+          <div class="metric-input">
+            <input id="sleepInput" type="number" min="0" max="24" step="0.5" placeholder="e.g. 8">
+            <span>hours</span>
+          </div>
+        </div>
+      </div>
+      <button class="secondary-btn health-save-btn" id="saveHealth">Save Health Metrics</button>
+    </section>
+
+    <!-- Main Interactive Content Grid -->
+    <section class="content-grid">
+      <div class="card calendar-card">
+        <div class="section-heading">
+          <div>
+            <p class="label">ATTENDANCE LOG</p>
+            <h2 id="monthTitle"></h2>
+          </div>
+          <div class="calendar-actions">
+            <button class="nav-btn" id="prevMonth" aria-label="Previous month">‹</button>
+            <button class="nav-btn" id="nextMonth" aria-label="Next month">›</button>
+          </div>
+        </div>
+
+        <div class="weekdays">
+          <span>Sun</span>
+          <span>Mon</span>
+          <span>Tue</span>
+          <span>Wed</span>
+          <span>Thu</span>
+          <span>Fri</span>
+          <span>Sat</span>
+        </div>
+        <div class="calendar" id="calendar"></div>
+
+        <div class="legend">
+          <span><i class="dot completed"></i> Completed</span>
+          <span><i class="dot today"></i> Today</span>
+          <span><i class="dot missed"></i> Missed</span>
+        </div>
+      </div>
+
+      <aside class="side-column">
+        <div class="card action-card">
+          <p class="label">TODAY'S STATUS</p>
+          <h2 id="todayStatus">Not completed</h2>
+          <p class="muted" id="todayMessage">Have you completed your routine today?</p>
+          <button class="primary-btn" id="attendanceBtn">Mark Today ✓</button>
+        </div>
+
+        <div class="card progress-card">
+          <div class="section-heading small">
+            <div>
+              <p class="label">GOAL PROGRESS</p>
+              <h2 id="progressText">0 / 30 days</h2>
+            </div>
+            <span class="progress-percent" id="progressPercent">0%</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+          <p class="muted" id="goalMessage">Start your streak today.</p>
+        </div>
+
+        <div class="card settings-card">
+          <p class="label">ROUTINE SETTINGS</p>
+          <label for="routineName">Active Routine Name</label>
+          <input id="routineName" type="text" maxlength="40" placeholder="e.g. Morning Exercise">
+
+          <label for="goalSelect">Target Goal</label>
+          <select id="goalSelect">
+            <option value="7">7 Days</option>
+            <option value="14">14 Days</option>
+            <option value="21">21 Days</option>
+            <option value="30" selected>30 Days</option>
+            <option value="60">60 Days</option>
+            <option value="90">90 Days</option>
+            <option value="100">100 Days</option>
+            <option value="365">365 Days</option>
+          </select>
+
+          <div class="settings-actions">
+            <button class="secondary-btn" id="saveSettings">Save Changes</button>
+            <button class="danger-btn" id="deleteRoutineBtn">Delete Routine</button>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <!-- Performance Analytics & Monthly Trends -->
+    <section class="card analytics-card">
+      <div class="section-heading">
+        <div>
+          <p class="label">PERFORMANCE ANALYTICS</p>
+          <h2>6-Month Consistency Visualizer</h2>
+        </div>
+      </div>
+      <div class="chart-container" id="chartContainer">
+        <!-- Visual bars generated dynamically -->
+      </div>
+    </section>
+
+    <!-- Backup & History -->
+    <section class="card backup-card">
+      <div class="section-heading">
+        <div>
+          <p class="label">DATA INTEGRITY</p>
+          <h2>Backup & Synchronization</h2>
+        </div>
+        <span class="backup-badge">JSON BACKUP</span>
+      </div>
+      <p class="muted backup-description">Keep a complete backup of your attendance, habits, streaks, and health metrics. Securely transfer to another device at any time.</p>
+      <div class="backup-actions">
+        <button class="secondary-btn backup-btn" id="exportData">Export Backup</button>
+        <button class="secondary-btn backup-btn" id="importData">Import Backup</button>
+        <input type="file" id="backupFile" accept=".json,application/json" hidden>
+      </div>
+    </section>
+
+    <section class="card history-card">
+      <div class="section-heading">
+        <div>
+          <p class="label">ACTIVITY AUDIT</p>
+          <h2>Recent History Log</h2>
+        </div>
+        <button class="text-btn" id="clearData">Reset Routine Data</button>
+      </div>
+      <div id="history" class="history"></div>
+    </section>
+
+    <footer>
+      <span>FitPulse Performance Tracker &copy; 2026</span>
+      <span>✓ End-to-End Local Storage & Privacy First</span>
+    </footer>
+  </main>
+
+  <!-- Celebration Modal Overlay -->
+  <div class="goal-celebration" id="goalCelebration" aria-hidden="true">
+    <div class="confetti-container" id="confettiContainer"></div>
+    <div class="celebration-card">
+      <div class="celebration-trophy">🏆</div>
+      <p class="celebration-eyebrow">MILESTONE UNLOCKED</p>
+      <h2>Target Achieved!</h2>
+      <div class="celebration-streak" id="celebrationStreak">0</div>
+      <p class="celebration-text">Outstanding discipline! You reached your goal for this routine.</p>
+      <button class="primary-btn celebration-btn" id="closeCelebration">Keep Pushing</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="script.js"></script>
+</body>
+</html>
