@@ -67,35 +67,68 @@ const celebrationStreakEl = document.getElementById("celebrationStreak");
 const confettiContainerEl = document.getElementById("confettiContainer");
 const closeCelebrationEl = document.getElementById("closeCelebration");
 
+// Phone app elements
+const appEl = document.querySelector(".app");
+const navItemEls = document.querySelectorAll(".nav-item");
+const fabBtnEl = document.getElementById("fabBtn");
+const themeColorMetaEl = document.querySelector('meta[name="theme-color"]');
+
+const sheetEl = document.getElementById("sheet");
+const sheetTitleEl = document.getElementById("sheetTitle");
+const sheetMessageEl = document.getElementById("sheetMessage");
+const sheetInputEl = document.getElementById("sheetInput");
+const sheetConfirmEl = document.getElementById("sheetConfirm");
+const sheetCancelEl = document.getElementById("sheetCancel");
+
 const heightInputEl = document.getElementById("heightInput");
 const weightInputEl = document.getElementById("weightInput");
 const stepsInputEl = document.getElementById("stepsInput");
 const sleepInputEl = document.getElementById("sleepInput");
 
+// Makes sure saved / imported data always has every field the app needs
+function normalizeState(parsed) {
+  const routines = Array.isArray(parsed.routines) && parsed.routines.length
+    ? parsed.routines.map((r, i) => ({
+        ...r,
+        id: r.id || `r_${Date.now()}_${i}`,
+        name: r.name || "Exercise Routine",
+        goal: Number(r.goal) || 30,
+        completed: Array.isArray(r.completed) ? r.completed : [],
+        unlockedBadges: Array.isArray(r.unlockedBadges) ? r.unlockedBadges : []
+      }))
+    : JSON.parse(JSON.stringify(defaultState.routines));
+
+  return {
+    theme: parsed.theme === "light" ? "light" : "dark",
+    activeRoutineId: routines.some(r => r.id === parsed.activeRoutineId) ? parsed.activeRoutineId : routines[0].id,
+    routines,
+    health: { height: "", weight: "", steps: "", sleep: "", ...(parsed.health || {}) }
+  };
+}
+
 function loadAppState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) return JSON.parse(JSON.stringify(defaultState));
-    const parsed = JSON.parse(saved);
-
-    const routines = Array.isArray(parsed.routines) && parsed.routines.length ? parsed.routines.map(r => ({
-      ...r,
-      unlockedBadges: Array.isArray(r.unlockedBadges) ? r.unlockedBadges : []
-    })) : JSON.parse(JSON.stringify(defaultState.routines));
-
-    return {
-      theme: parsed.theme || "dark",
-      activeRoutineId: parsed.activeRoutineId || routines[0].id,
-      routines,
-      health: parsed.health || { height: "", weight: "", steps: "", sleep: "" }
-    };
+    return normalizeState(JSON.parse(saved));
   } catch {
     return JSON.parse(JSON.stringify(defaultState));
   }
 }
 
 function saveAppState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+  } catch {
+    // Storage can be blocked (private mode / full). The app keeps working for this visit.
+  }
+}
+
+// Short vibration on phones that support it (ignored elsewhere)
+function haptic(pattern) {
+  try {
+    if (navigator.vibrate) navigator.vibrate(pattern);
+  } catch {}
 }
 
 function getActiveRoutine() {
@@ -172,7 +205,107 @@ function applyTheme() {
     document.body.classList.remove("light-theme");
     themeIconEl.textContent = "🌙";
   }
+  if (themeColorMetaEl) themeColorMetaEl.setAttribute("content", appState.theme === "light" ? "#f3f6f9" : "#07111a");
 }
+
+// Locks page scrolling while a sheet / celebration is open
+function syncScrollLock() {
+  const open = document.querySelector(".goal-celebration.show, .sheet-backdrop.show");
+  document.body.classList.toggle("no-scroll", !!open);
+}
+
+// ---------- Phone screens (Today / Calendar / Progress / More) ----------
+function setView(name, { scroll = true } = {}) {
+  appEl.dataset.activeView = name;
+  navItemEls.forEach(btn => {
+    const on = btn.dataset.view === name;
+    btn.classList.toggle("active", on);
+    if (on) btn.setAttribute("aria-current", "page");
+    else btn.removeAttribute("aria-current");
+  });
+
+  appEl.classList.remove("view-enter");
+  void appEl.offsetWidth;
+  appEl.classList.add("view-enter");
+  clearTimeout(setView._timer);
+  setView._timer = setTimeout(() => appEl.classList.remove("view-enter"), 400);
+
+  if (scroll) window.scrollTo({ top: 0, behavior: "instant" });
+}
+
+navItemEls.forEach(btn => {
+  btn.addEventListener("click", () => {
+    haptic(8);
+    setView(btn.dataset.view);
+  });
+});
+
+// Hide the tab bar while the on-screen keyboard is up
+document.addEventListener("focusin", (e) => {
+  if (e.target.matches("input, select, textarea")) document.body.classList.add("typing");
+});
+document.addEventListener("focusout", () => {
+  setTimeout(() => {
+    if (!document.activeElement || !document.activeElement.matches("input, select, textarea")) {
+      document.body.classList.remove("typing");
+    }
+  }, 150);
+});
+
+// ---------- Bottom sheet (replaces prompt() / confirm()) ----------
+let sheetResolver = null;
+let sheetReturnFocusEl = null;
+
+function openSheet({ title, message = "", input = null, confirmText = "Confirm", cancelText = "Cancel", danger = false }) {
+  return new Promise(resolve => {
+    if (sheetResolver) sheetResolver(input ? null : false);
+
+    sheetTitleEl.textContent = title;
+    sheetMessageEl.textContent = message;
+    sheetMessageEl.hidden = !message;
+    sheetInputEl.hidden = !input;
+    if (input) {
+      sheetInputEl.value = input.value || "";
+      sheetInputEl.placeholder = input.placeholder || "";
+    }
+    sheetConfirmEl.textContent = confirmText;
+    sheetCancelEl.textContent = cancelText;
+    sheetConfirmEl.classList.toggle("danger-fill", danger);
+
+    sheetReturnFocusEl = document.activeElement;
+    sheetResolver = (value) => {
+      sheetResolver = null;
+      sheetEl.classList.remove("show");
+      sheetEl.setAttribute("aria-hidden", "true");
+      syncScrollLock();
+      if (sheetReturnFocusEl && sheetReturnFocusEl.focus) sheetReturnFocusEl.focus({ preventScroll: true });
+      resolve(value);
+    };
+
+    sheetEl.classList.add("show");
+    sheetEl.setAttribute("aria-hidden", "false");
+    syncScrollLock();
+    setTimeout(() => (input ? sheetInputEl : sheetConfirmEl).focus({ preventScroll: true }), 80);
+  });
+}
+
+function answerSheet(confirmed) {
+  if (!sheetResolver) return;
+  if (!sheetInputEl.hidden) sheetResolver(confirmed ? sheetInputEl.value : null);
+  else sheetResolver(confirmed);
+}
+
+sheetConfirmEl.addEventListener("click", () => answerSheet(true));
+sheetCancelEl.addEventListener("click", () => answerSheet(false));
+sheetEl.addEventListener("click", (e) => { if (e.target === sheetEl) answerSheet(false); });
+sheetInputEl.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); answerSheet(true); }
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (sheetResolver) answerSheet(false);
+  else if (goalCelebrationEl.classList.contains("show")) closeCelebration();
+});
 
 themeToggleEl.addEventListener("click", () => {
   appState.theme = appState.theme === "dark" ? "light" : "dark";
@@ -196,8 +329,13 @@ function renderRoutineTabs() {
   });
 }
 
-addRoutineBtnEl.addEventListener("click", () => {
-  const name = prompt("Enter new routine name:", "New Routine");
+addRoutineBtnEl.addEventListener("click", async () => {
+  const name = await openSheet({
+    title: "New routine",
+    message: "Give your routine a name.",
+    input: { value: "", placeholder: "e.g. Morning run" },
+    confirmText: "Create routine"
+  });
   if (!name || !name.trim()) return;
   const newRoutine = {
     id: "r_" + Date.now(),
@@ -213,13 +351,19 @@ addRoutineBtnEl.addEventListener("click", () => {
   showToast("New routine created ✓");
 });
 
-deleteRoutineBtnEl.addEventListener("click", () => {
+deleteRoutineBtnEl.addEventListener("click", async () => {
   if (appState.routines.length <= 1) {
     showToast("You must maintain at least one routine.");
     return;
   }
   const routine = getActiveRoutine();
-  if (confirm(`Delete '${routine.name}'?`)) {
+  const ok = await openSheet({
+    title: `Delete “${routine.name}”?`,
+    message: "All of its attendance and badges will be removed. This can’t be undone.",
+    confirmText: "Delete routine",
+    danger: true
+  });
+  if (ok) {
     appState.routines = appState.routines.filter(r => r.id !== routine.id);
     appState.activeRoutineId = appState.routines[0].id;
     saveAppState();
@@ -312,7 +456,7 @@ function renderBadges(routine, currentStreak, totalWorkouts) {
     const firstAnimated = badgesGridEl.querySelector(".badge-just-unlocked");
     if (firstAnimated) {
       const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      firstAnimated.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center" });
+      firstAnimated.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center", inline: "center" });
     }
   }
 }
@@ -336,43 +480,87 @@ function playStreakAnimations(streakGrew, goalReached) {
   }
   if (goalReached) {
     replayAnimClass(document.querySelector(".progress-card"), "goal-reached", 2400);
-    replayAnimClass(progressBarEl, "goal-shine", 2400);
+    replayAnimClass(progressBarEl, "goal-shine", 2800);
     replayAnimClass(progressPercentEl, "number-pop", 800);
   }
 }
 
 // Celebration Pop-up & Confetti Animation
-function triggerCelebration(title, eyebrow, streakText, descText, icon) {
+const CONFETTI_COLORS = ["#38e6b0", "#68a5ff", "#f4bd4f", "#a66cff", "#ff6b7a"];
+
+function triggerCelebration(title, eyebrow, streakText, descText, icon, isGoal = false) {
   celebrationStreakEl.textContent = icon || streakText;
   document.querySelector(".celebration-eyebrow").textContent = eyebrow;
   document.querySelector(".celebration-card h2").textContent = title;
   document.querySelector(".celebration-text").textContent = descText;
+  goalCelebrationEl.classList.toggle("is-goal", isGoal);
 
   confettiContainerEl.innerHTML = "";
+
+  // Confetti raining from the top (every celebration)
   for (let i = 0; i < 85; i++) {
     const piece = document.createElement("span");
     piece.className = "confetti-piece";
     piece.style.left = `${Math.random() * 100}%`;
-    piece.style.backgroundColor = ["#38e6b0", "#68a5ff", "#f4bd4f", "#a66cff", "#ff6b7a"][Math.floor(Math.random() * 5)];
+    piece.style.backgroundColor = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
     piece.style.animationDelay = `${Math.random() * 0.7}s`;
     piece.style.animationDuration = `${2 + Math.random() * 1.5}s`;
     confettiContainerEl.appendChild(piece);
   }
 
+  // Goal complete: extra burst of confetti exploding out of the middle
+  if (isGoal) {
+    for (let i = 0; i < 70; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 120 + Math.random() * 230;
+      const piece = document.createElement("span");
+      piece.className = "confetti-piece burst";
+      piece.style.setProperty("--dx", `${Math.cos(angle) * distance}px`);
+      piece.style.setProperty("--dy", `${Math.sin(angle) * distance - 140}px`);
+      piece.style.setProperty("--rot", `${(Math.random() - 0.5) * 1440}deg`);
+      piece.style.backgroundColor = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+      if (Math.random() < 0.35) piece.style.borderRadius = "50%";
+      piece.style.animationDelay = `${0.25 + Math.random() * 0.25}s`;
+      piece.style.animationDuration = `${1.8 + Math.random() * 1}s`;
+      confettiContainerEl.appendChild(piece);
+    }
+    haptic([30, 50, 30, 50, 100]);
+  } else {
+    haptic([20, 40, 20]);
+  }
+
   goalCelebrationEl.classList.add("show");
   goalCelebrationEl.setAttribute("aria-hidden", "false");
+  syncScrollLock();
 }
 
-closeCelebrationEl.addEventListener("click", () => {
+// If a goal and a badge are earned on the same day, show both - one after the other
+let celebrationQueue = [];
+
+function showNextCelebration() {
+  const next = celebrationQueue.shift();
+  if (next) {
+    const [title, eyebrow, streakText, descText, icon] = next.args;
+    triggerCelebration(title, eyebrow, streakText, descText, icon, next.kind === "goal");
+  }
+}
+
+function queueCelebrations(items) {
+  celebrationQueue.push(...items);
+  if (!goalCelebrationEl.classList.contains("show")) showNextCelebration();
+}
+
+function closeCelebration() {
   goalCelebrationEl.classList.remove("show");
   goalCelebrationEl.setAttribute("aria-hidden", "true");
-});
+  syncScrollLock();
+  if (celebrationQueue.length) setTimeout(showNextCelebration, 450);
+}
+
+closeCelebrationEl.addEventListener("click", closeCelebration);
 
 goalCelebrationEl.addEventListener("click", (e) => {
-  if (e.target === goalCelebrationEl) {
-    goalCelebrationEl.classList.remove("show");
-    goalCelebrationEl.setAttribute("aria-hidden", "true");
-  }
+  if (e.target === goalCelebrationEl) closeCelebration();
 });
 
 // Render Calendar & Attendance
@@ -393,6 +581,12 @@ function renderToday() {
     todayMessageEl.textContent = `Have you completed ${routine.name.toLowerCase()} today?`;
     attendanceBtnEl.textContent = "Mark Today ✓";
     attendanceBtnEl.classList.remove("completed");
+  }
+
+  if (fabBtnEl) {
+    fabBtnEl.classList.toggle("done", done);
+    fabBtnEl.setAttribute("aria-pressed", String(done));
+    fabBtnEl.setAttribute("aria-label", done ? "Today is done. Tap to undo" : "Mark today as done");
   }
 }
 
@@ -420,6 +614,7 @@ function renderCalendar() {
     const cell = document.createElement("div");
 
     cell.className = "day";
+    cell.dataset.date = dateString;
     cell.textContent = day;
     cell.setAttribute("tabindex", "0");
 
@@ -455,7 +650,7 @@ function toggleDate(dateStr) {
   const routine = getActiveRoutine();
   const prevStreak = calculateCurrentStreak(routine);
   const isAdding = !routine.completed.includes(dateStr);
-  let pendingCelebration = null;
+  const pendingCelebrations = [];
   let streakGrew = false;
   let goalJustReached = false;
   let hasBadgeAnimation = false;
@@ -501,22 +696,30 @@ function toggleDate(dateStr) {
     goalJustReached = reachedGoal;
     hasBadgeAnimation = recentlyUnlockedBadgeIds.size > 0;
 
+    // Goal first (the bigger moment), then the badge
+    if (reachedGoal) {
+      pendingCelebrations.push({
+        kind: "goal",
+        args: [
+          "Streak Goal Achieved! 🎉",
+          "GOAL COMPLETED!",
+          `${newStreak} DAYS`,
+          "Fantastic consistency! You conquered your streak goal.",
+          "" // no icon: show the "30 DAYS" number instead
+        ]
+      });
+    }
     if (newlyUnlockedBadge) {
-      pendingCelebration = [
-        newlyUnlockedBadge.name,
-        "NEW BADGE UNLOCKED! 🏆",
-        "",
-        newlyUnlockedBadge.desc,
-        newlyUnlockedBadge.icon
-      ];
-    } else if (reachedGoal) {
-      pendingCelebration = [
-        "Streak Goal Achieved! 🎉",
-        "GOAL COMPLETED!",
-        `${newStreak} DAYS`,
-        "Fantastic consistency! You conquered your streak goal.",
-        "🏆"
-      ];
+      pendingCelebrations.push({
+        kind: "badge",
+        args: [
+          newlyUnlockedBadge.name,
+          "NEW BADGE UNLOCKED! 🏆",
+          "",
+          newlyUnlockedBadge.desc,
+          newlyUnlockedBadge.icon
+        ]
+      });
     }
   }
 
@@ -524,19 +727,27 @@ function toggleDate(dateStr) {
   renderAll();
 
   if (isAdding) {
+    haptic(14);
+    replayAnimClass(calendarEl.querySelector(`[data-date="${dateStr}"]`), "day-pop", 600);
+    replayAnimClass(fabBtnEl, "fab-pop", 650);
     playStreakAnimations(streakGrew, goalJustReached);
   }
 
   // Let the badge / streak animation play before the pop-up covers the screen
-  if (pendingCelebration) {
+  if (pendingCelebrations.length) {
     const delay = (hasBadgeAnimation || goalJustReached) ? 1400 : 0;
-    setTimeout(() => triggerCelebration(...pendingCelebration), delay);
+    setTimeout(() => queueCelebrations(pendingCelebrations), delay);
   }
 }
 
 attendanceBtnEl.addEventListener("click", () => {
   toggleDate(getLocalDateString());
 });
+
+// Floating check button in the phone tab bar (works from any screen)
+if (fabBtnEl) {
+  fabBtnEl.addEventListener("click", () => toggleDate(getLocalDateString()));
+}
 
 document.getElementById("prevMonth").addEventListener("click", () => {
   displayedDate = new Date(displayedDate.getFullYear(), displayedDate.getMonth() - 1, 1);
@@ -662,7 +873,7 @@ document.getElementById("backupFile").addEventListener("change", (e) => {
     try {
       const parsed = JSON.parse(reader.result);
       if (parsed.routines) {
-        appState = parsed;
+        appState = normalizeState(parsed);
         saveAppState();
         applyTheme();
         renderAll();
@@ -677,8 +888,14 @@ document.getElementById("backupFile").addEventListener("change", (e) => {
   reader.readAsText(file);
 });
 
-document.getElementById("clearData").addEventListener("click", () => {
-  if (confirm("Reset current routine data?")) {
+document.getElementById("clearData").addEventListener("click", async () => {
+  const ok = await openSheet({
+    title: "Reset routine data?",
+    message: `This clears every completed day and badge for “${getActiveRoutine().name}”.`,
+    confirmText: "Reset data",
+    danger: true
+  });
+  if (ok) {
     const routine = getActiveRoutine();
     routine.completed = [];
     routine.unlockedBadges = [];
@@ -696,13 +913,19 @@ function runEpicIntroAnimation() {
   if (!intro || !canvas || !line) return;
 
   const ctx = canvas.getContext("2d");
-  let width = (canvas.width = window.innerWidth);
-  let height = (canvas.height = window.innerHeight);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  let width = window.innerWidth;
+  let height = window.innerHeight;
 
-  window.addEventListener("resize", () => {
-    width = canvas.width = window.innerWidth;
-    height = canvas.height = window.innerHeight;
-  });
+  function sizeCanvas() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  sizeCanvas();
+  window.addEventListener("resize", sizeCanvas);
 
   const particles = [];
   const particleCount = Math.min(Math.floor(width / 15), 90);
@@ -777,13 +1000,21 @@ function runEpicIntroAnimation() {
     line.appendChild(span);
   });
 
-  setTimeout(() => {
+  let introFinished = false;
+  function finishIntro() {
+    if (introFinished) return;
+    introFinished = true;
+    window.removeEventListener("resize", sizeCanvas);
     intro.classList.add("intro-hidden");
     setTimeout(() => {
       cancelAnimationFrame(animId);
       intro.remove();
     }, 850);
-  }, words.length * 160 + 1500);
+  }
+
+  // Tap anywhere (or the Skip button) to go straight to the app
+  intro.addEventListener("click", finishIntro);
+  setTimeout(finishIntro, words.length * 160 + 1500);
 }
 
 function renderAll() {
@@ -797,5 +1028,6 @@ function renderAll() {
 }
 
 applyTheme();
+setView("home", { scroll: false });
 renderAll();
 runEpicIntroAnimation();

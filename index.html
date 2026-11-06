@@ -2,15 +2,23 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="theme-color" content="#07111a">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="FitPulse">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <title>FitPulse - Advanced Exercise & Habit Tracker</title>
   <link rel="stylesheet" href="style.css">
   <link rel="icon" href="ChatGPT Image Sep 15, 2026, 07_30_50 PM.png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
 </head>
 <body>
   <!-- Epic Animated Canvas Splash Screen -->
   <div class="intro-animation" id="introAnimation" aria-label="Consistency beats talent. Let's build your legacy 🔥">
     <canvas id="introCanvas"></canvas>
+    <button class="intro-skip" id="introSkip" type="button">Skip</button>
     <div class="intro-content">
       <div class="intro-badge">FITPULSE PERFORMANCE</div>
       <p class="intro-line" id="introLine"></p>
@@ -18,7 +26,7 @@
     </div>
   </div>
 
-  <main class="app">
+  <main class="app" data-active-view="home">
     <!-- Top Header / Navigation -->
     <header class="hero">
       <div class="brand">
@@ -42,11 +50,11 @@
       <div class="routine-tabs" id="routineTabs">
         <!-- Dynamic Tabs -->
       </div>
-      <button class="secondary-btn add-routine-btn" id="addRoutineBtn">+ New Routine</button>
+      <button class="secondary-btn add-routine-btn" id="addRoutineBtn" aria-label="New routine">+<span class="btn-text"> New Routine</span></button>
     </section>
 
     <!-- Key Metrics Dashboard -->
-    <section class="dashboard">
+    <section class="dashboard" data-view="home">
       <div class="card streak-card">
         <div class="card-top">
           <span class="icon">🔥</span>
@@ -85,7 +93,7 @@
     </section>
 
     <!-- Badges & Achievements System -->
-    <section class="card badges-card">
+    <section class="card badges-card" data-view="progress">
       <div class="section-heading">
         <div>
           <p class="label">MILESTONES & ACHIEVEMENTS</p>
@@ -99,7 +107,7 @@
     </section>
 
     <!-- Health Metrics Snapshot -->
-    <section class="card health-card">
+    <section class="card health-card" data-view="more">
       <div class="section-heading">
         <div>
           <p class="label">HEALTH SNAPSHOT</p>
@@ -146,7 +154,7 @@
 
     <!-- Main Interactive Content Grid -->
     <section class="content-grid">
-      <div class="card calendar-card">
+      <div class="card calendar-card" data-view="calendar">
         <div class="section-heading">
           <div>
             <p class="label">ATTENDANCE LOG</p>
@@ -177,14 +185,14 @@
       </div>
 
       <aside class="side-column">
-        <div class="card action-card">
+        <div class="card action-card" data-view="home">
           <p class="label">TODAY'S STATUS</p>
           <h2 id="todayStatus">Not completed</h2>
           <p class="muted" id="todayMessage">Have you completed your routine today?</p>
           <button class="primary-btn" id="attendanceBtn">Mark Today ✓</button>
         </div>
 
-        <div class="card progress-card">
+        <div class="card progress-card" data-view="home">
           <div class="section-heading small">
             <div>
               <p class="label">GOAL PROGRESS</p>
@@ -198,7 +206,7 @@
           <p class="muted" id="goalMessage">Start your streak today.</p>
         </div>
 
-        <div class="card settings-card">
+        <div class="card settings-card" data-view="more">
           <p class="label">ROUTINE SETTINGS</p>
           <label for="routineName">Active Routine Name</label>
           <input id="routineName" type="text" maxlength="40" placeholder="e.g. Morning Exercise">
@@ -224,7 +232,7 @@
     </section>
 
     <!-- Performance Analytics & Monthly Trends -->
-    <section class="card analytics-card">
+    <section class="card analytics-card" data-view="progress">
       <div class="section-heading">
         <div>
           <p class="label">PERFORMANCE ANALYTICS</p>
@@ -237,7 +245,7 @@
     </section>
 
     <!-- Backup & History -->
-    <section class="card backup-card">
+    <section class="card backup-card" data-view="more">
       <div class="section-heading">
         <div>
           <p class="label">DATA INTEGRITY</p>
@@ -253,7 +261,7 @@
       </div>
     </section>
 
-    <section class="card history-card">
+    <section class="card history-card" data-view="calendar">
       <div class="section-heading">
         <div>
           <p class="label">ACTIVITY AUDIT</p>
@@ -264,11 +272,48 @@
       <div id="history" class="history"></div>
     </section>
 
-    <footer>
+    <footer data-view="more">
       <span>FitPulse Performance Tracker &copy; 2026</span>
       <span>✓ End-to-End Local Storage & Privacy First</span>
     </footer>
   </main>
+
+  <!-- Phone bottom navigation (hidden on large screens) -->
+  <nav class="bottom-nav" id="bottomNav" aria-label="Main navigation">
+    <button class="nav-item active" type="button" data-view="home" aria-current="page">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v8.5a1.5 1.5 0 0 1-1.5 1.5H15v-6H9v6H5.5A1.5 1.5 0 0 1 4 19.5z"/></svg>
+      <span>Today</span>
+    </button>
+    <button class="nav-item" type="button" data-view="calendar">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+      <span>Calendar</span>
+    </button>
+    <button class="nav-fab" id="fabBtn" type="button" aria-label="Mark today as done" aria-pressed="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+    </button>
+    <button class="nav-item" type="button" data-view="progress">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20v-6M12 20V5M19 20V10"/></svg>
+      <span>Progress</span>
+    </button>
+    <button class="nav-item" type="button" data-view="more">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M19 7h1M4 17h1M11 17h9"/><circle cx="16" cy="7" r="2.2"/><circle cx="8" cy="17" r="2.2"/></svg>
+      <span>More</span>
+    </button>
+  </nav>
+
+  <!-- Bottom sheet (replaces the browser's prompt / confirm boxes) -->
+  <div class="sheet-backdrop" id="sheet" aria-hidden="true">
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+      <div class="sheet-handle"></div>
+      <h3 id="sheetTitle"></h3>
+      <p class="muted" id="sheetMessage"></p>
+      <input id="sheetInput" type="text" maxlength="40" autocomplete="off">
+      <div class="sheet-actions">
+        <button class="secondary-btn" id="sheetCancel" type="button">Cancel</button>
+        <button class="primary-btn" id="sheetConfirm" type="button">Confirm</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Celebration Modal Overlay -->
   <div class="goal-celebration" id="goalCelebration" aria-hidden="true">
