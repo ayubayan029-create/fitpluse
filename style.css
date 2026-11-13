@@ -495,7 +495,7 @@ h2 {
 }
 
 @media (hover: hover) {
-  .day:not(.empty):hover {
+  .day.today:hover {
     border-color: var(--accent);
     transform: translateY(-2px) scale(1.04);
     color: var(--text);
@@ -508,6 +508,10 @@ h2 {
 
 .day.empty {
   background: transparent;
+  cursor: default;
+}
+
+.day[aria-disabled="true"] {
   cursor: default;
 }
 
@@ -1191,32 +1195,7 @@ footer {
 }
 
 /* ---------- Accessibility ---------- */
-@media (prefers-reduced-motion: reduce) {
-  .badge-item,
-  .badge-item.unlocked,
-  .badge-item.badge-just-unlocked,
-  .badge-item .badge-icon,
-  .badge-item.badge-just-unlocked::before,
-  .badge-item.badge-just-unlocked::after,
-  .badge-count.badge-count-pop,
-  .streak-card.streak-bump,
-  .streak-card.streak-bump .icon,
-  .number-pop,
-  .action-card.day-complete,
-  .action-card.day-complete h2,
-  .progress-card.goal-reached,
-  .progress-bar.goal-shine::after,
-  .goal-celebration.show .celebration-card,
-  .goal-celebration.show .celebration-card::before,
-  .goal-celebration.show .celebration-trophy,
-  .goal-celebration.show .celebration-eyebrow,
-  .goal-celebration.show .celebration-card h2,
-  .goal-celebration.show .celebration-text,
-  .goal-celebration.show .celebration-btn,
-  .goal-celebration.show .celebration-streak {
-    animation: none !important;
-  }
-}
+
 
 
 /* =====================================================================
@@ -1691,12 +1670,170 @@ button, .tab-btn, .day, .nav-item, .nav-fab {
 }
 
 /* ---------- Reduced motion for the new effects ---------- */
-@media (prefers-reduced-motion: reduce) {
-  .day.day-pop,
-  .nav-fab.fab-pop,
-  .app.view-enter [data-view],
-  .goal-celebration.is-goal.show .celebration-trophy::before,
-  .goal-celebration.is-goal.show .celebration-trophy::after { animation: none !important; }
-  .confetti-container { display: none; }
-  .sheet { transition: none; }
+
+
+
+/* =====================================================================
+   INSTALL BUTTON, ANIMATION SWITCH, MOBILE-PROOF EFFECTS
+   ===================================================================== */
+:root { --nav-h: 0px; }
+[hidden] { display: none !important; }
+
+.calendar-hint { margin-top: 12px; font-size: 0.8rem; }
+.sheet .muted { white-space: pre-line; }
+
+/* Install button in the header (desktop / tablet) */
+.install-header-btn {
+  padding: 10px 16px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: rgba(56, 230, 176, 0.12);
+  color: var(--accent);
+  font-weight: 800;
+  font-size: 0.86rem;
+  white-space: nowrap;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+.install-header-btn:active { transform: scale(0.96); }
+@media (hover: hover) {
+  .install-header-btn:hover { background: var(--accent); color: #07140f; }
+}
+
+/* Install banner (phones only, see mobile block) */
+.install-banner {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 10px 12px 14px;
+  border: 1px solid rgba(56, 230, 176, 0.4);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(56, 230, 176, 0.14), transparent 70%), var(--card);
+}
+.install-banner-icon { width: 44px; height: 44px; flex: 0 0 auto; border-radius: 12px; }
+.install-banner-text { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.install-banner-text strong { font-size: 0.95rem; }
+.install-banner-text span { color: var(--muted); font-size: 0.76rem; line-height: 1.3; }
+.install-banner-btn {
+  flex: 0 0 auto;
+  padding: 10px 16px;
+  min-height: 40px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #07140f;
+  font-weight: 850;
+}
+.install-banner-btn:active { transform: scale(0.95); }
+.install-banner-close {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+/* Install & preferences card */
+.app-card { padding: 27px 31px; margin-bottom: 24px; }
+.app-card .install-more-btn { max-width: 340px; }
+.installed-note { margin-top: 4px; color: var(--accent); font-weight: 700; }
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-soft);
+  border-radius: 16px;
+  background: var(--card-2);
+  cursor: pointer;
+}
+.switch-text { display: grid; gap: 2px; }
+.switch-text strong { font-size: 0.92rem; }
+.switch-text small { color: var(--muted); font-size: 0.78rem; }
+.switch {
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  width: 50px;
+  height: 30px;
+  border: 0;
+  border-radius: 999px;
+  outline: none;
+  background: var(--border);
+  cursor: pointer;
+  transition: background 0.25s ease;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1.2);
+}
+.switch:checked { background: var(--accent); }
+.switch:checked::after { transform: translateX(20px); }
+.switch:focus-visible { box-shadow: 0 0 0 3px rgba(56, 230, 176, 0.35); }
+
+/* Floating "streak" chip + sparks: visible on EVERY screen, so animations are
+   obvious on phones even when the streak card is off-screen */
+.float-chip {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 58px);
+  z-index: 1200;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #07140f;
+  font-weight: 850;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  box-shadow: 0 10px 30px rgba(56, 230, 176, 0.45);
+  pointer-events: none;
+  animation: float-chip 1.7s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+@keyframes float-chip {
+  0%   { opacity: 0; transform: translate(-50%, 14px) scale(0.8); }
+  15%  { opacity: 1; transform: translate(-50%, 0) scale(1.08); }
+  30%  { transform: translate(-50%, -6px) scale(1); }
+  75%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -70px) scale(1); }
+}
+
+.spark {
+  position: fixed;
+  z-index: 1200;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: spark-fly 0.95s cubic-bezier(0.1, 0.7, 0.3, 1) forwards;
+}
+@keyframes spark-fly {
+  0%   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.3); }
+}
+
+/* Animations switched off in the app: stop every effect (intro is skipped in JS) */
+body.no-anim *, body.no-anim *::before, body.no-anim *::after { animation: none !important; }
+body.no-anim .confetti-container, body.no-anim .float-chip, body.no-anim .spark { display: none !important; }
+
+/* Phone adjustments */
+@media (max-width: 720px) {
+  .install-header-btn { display: none; }
+  .install-banner:not([hidden]) { display: flex; }
+  .app > .app-card { order: -2; }
+  .app-card { padding: 18px 16px; margin-bottom: 0; }
+  .app-card .install-more-btn { max-width: none; }
+  .calendar-hint { margin-top: 10px; }
 }

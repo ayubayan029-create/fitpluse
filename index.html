@@ -38,6 +38,7 @@
         </div>
       </div>
       <div class="header-controls">
+        <button class="install-header-btn install-trigger" id="installHeaderBtn" type="button" hidden>⬇ Install app</button>
         <div class="today-pill" id="todayPill"></div>
         <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
           <span class="theme-icon" id="themeIcon">🌙</span>
@@ -52,6 +53,17 @@
       </div>
       <button class="secondary-btn add-routine-btn" id="addRoutineBtn" aria-label="New routine">+<span class="btn-text"> New Routine</span></button>
     </section>
+
+    <!-- Install banner (phones) -->
+    <div class="install-banner" id="installBanner" data-view="home" hidden>
+      <img class="install-banner-icon" src="icon-192.png" alt="">
+      <div class="install-banner-text">
+        <strong>Install FitPulse</strong>
+        <span>Full screen, home-screen icon, works offline</span>
+      </div>
+      <button class="install-trigger install-banner-btn" type="button">Install</button>
+      <button class="install-banner-close" id="installDismiss" type="button" aria-label="Dismiss">✕</button>
+    </div>
 
     <!-- Key Metrics Dashboard -->
     <section class="dashboard" data-view="home">
@@ -182,6 +194,7 @@
           <span><i class="dot today"></i> Today</span>
           <span><i class="dot missed"></i> Missed</span>
         </div>
+        <p class="muted calendar-hint">Only today can be marked. Past and future days are locked.</p>
       </div>
 
       <aside class="side-column">
@@ -242,6 +255,25 @@
       <div class="chart-container" id="chartContainer">
         <!-- Visual bars generated dynamically -->
       </div>
+    </section>
+
+    <!-- Install & preferences -->
+    <section class="card app-card" data-view="more">
+      <div class="section-heading">
+        <div>
+          <p class="label">APP</p>
+          <h2>Install &amp; preferences</h2>
+        </div>
+      </div>
+      <button class="primary-btn install-trigger install-more-btn" id="installMoreBtn" type="button">⬇ Install app</button>
+      <p class="muted installed-note" id="installedNote" hidden>✓ FitPulse is installed on this device.</p>
+      <label class="switch-row" for="animToggle">
+        <span class="switch-text">
+          <strong>Animations</strong>
+          <small>Streak, badge &amp; goal celebrations</small>
+        </span>
+        <input type="checkbox" id="animToggle" class="switch" checked>
+      </label>
     </section>
 
     <!-- Backup & History -->
@@ -308,7 +340,7 @@
       <h3 id="sheetTitle"></h3>
       <p class="muted" id="sheetMessage"></p>
       <input id="sheetInput" type="text" maxlength="40" autocomplete="off">
-      <div class="sheet-actions">
+      <div class="sheet-actions" id="sheetActions">
         <button class="secondary-btn" id="sheetCancel" type="button">Cancel</button>
         <button class="primary-btn" id="sheetConfirm" type="button">Confirm</button>
       </div>

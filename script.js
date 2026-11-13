@@ -1,4 +1,5 @@
 const STORAGE_KEY = "fitPulseTrackerData";
+const CONFETTI_COLORS = ["#38e6b0", "#68a5ff", "#f4bd4f", "#a66cff", "#ff6b7a"];
 
 const BADGES = [
   { id: "streak3", name: "3-Day Ignition", desc: "Build momentum with 3 consecutive days.", icon: "🔥", check: (streak) => streak >= 3 },
@@ -11,6 +12,7 @@ const BADGES = [
 
 const defaultState = {
   theme: "dark",
+  animations: true,
   activeRoutineId: "r1",
   routines: [
     {
@@ -80,6 +82,14 @@ const sheetInputEl = document.getElementById("sheetInput");
 const sheetConfirmEl = document.getElementById("sheetConfirm");
 const sheetCancelEl = document.getElementById("sheetCancel");
 
+const installHeaderBtnEl = document.getElementById("installHeaderBtn");
+const installBannerEl = document.getElementById("installBanner");
+const installMoreBtnEl = document.getElementById("installMoreBtn");
+const installedNoteEl = document.getElementById("installedNote");
+const installDismissEl = document.getElementById("installDismiss");
+const animToggleEl = document.getElementById("animToggle");
+const sheetActionsEl = document.getElementById("sheetActions");
+
 const heightInputEl = document.getElementById("heightInput");
 const weightInputEl = document.getElementById("weightInput");
 const stepsInputEl = document.getElementById("stepsInput");
@@ -93,13 +103,14 @@ function normalizeState(parsed) {
         id: r.id || `r_${Date.now()}_${i}`,
         name: r.name || "Exercise Routine",
         goal: Number(r.goal) || 30,
-        completed: Array.isArray(r.completed) ? r.completed : [],
+        completed: Array.isArray(r.completed) ? r.completed.filter(d => typeof d === "string" && d <= getLocalDateString()) : [],
         unlockedBadges: Array.isArray(r.unlockedBadges) ? r.unlockedBadges : []
       }))
     : JSON.parse(JSON.stringify(defaultState.routines));
 
   return {
     theme: parsed.theme === "light" ? "light" : "dark",
+    animations: parsed.animations !== false,
     activeRoutineId: routines.some(r => r.id === parsed.activeRoutineId) ? parsed.activeRoutineId : routines[0].id,
     routines,
     health: { height: "", weight: "", steps: "", sleep: "", ...(parsed.health || {}) }
@@ -240,13 +251,14 @@ navItemEls.forEach(btn => {
   });
 });
 
-// Hide the tab bar while the on-screen keyboard is up
+// Hide the tab bar while the on-screen keyboard is up (text fields only, not switches)
+const TEXT_FIELD_SELECTOR = 'input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="file"]), select, textarea';
 document.addEventListener("focusin", (e) => {
-  if (e.target.matches("input, select, textarea")) document.body.classList.add("typing");
+  if (e.target.matches(TEXT_FIELD_SELECTOR)) document.body.classList.add("typing");
 });
 document.addEventListener("focusout", () => {
   setTimeout(() => {
-    if (!document.activeElement || !document.activeElement.matches("input, select, textarea")) {
+    if (!document.activeElement || !document.activeElement.matches(TEXT_FIELD_SELECTOR)) {
       document.body.classList.remove("typing");
     }
   }, 150);
@@ -269,7 +281,9 @@ function openSheet({ title, message = "", input = null, confirmText = "Confirm",
       sheetInputEl.placeholder = input.placeholder || "";
     }
     sheetConfirmEl.textContent = confirmText;
-    sheetCancelEl.textContent = cancelText;
+    sheetCancelEl.textContent = cancelText || "Cancel";
+    sheetCancelEl.hidden = cancelText === null;
+    sheetActionsEl.style.gridTemplateColumns = cancelText === null ? "1fr" : "";
     sheetConfirmEl.classList.toggle("danger-fill", danger);
 
     sheetReturnFocusEl = document.activeElement;
@@ -312,6 +326,149 @@ themeToggleEl.addEventListener("click", () => {
   applyTheme();
   saveAppState();
 });
+
+// ---------- Animations switch (works the same on every phone) ----------
+function animationsEnabled() {
+  return appState.animations !== false;
+}
+
+function applyAnimPref() {
+  document.body.classList.toggle("no-anim", !animationsEnabled());
+  if (animToggleEl) animToggleEl.checked = animationsEnabled();
+}
+
+if (animToggleEl) {
+  animToggleEl.addEventListener("change", () => {
+    appState.animations = animToggleEl.checked;
+    saveAppState();
+    applyAnimPref();
+    showToast(appState.animations ? "Animations on ✓" : "Animations off");
+    if (appState.animations) sparkBurst(animToggleEl);
+  });
+}
+
+const isVisible = (el) => !!el && el.getClientRects().length > 0;
+
+// Small burst of sparks from any element (fixed to the screen, so it shows on every tab)
+function sparkBurst(originEl, count = 16) {
+  if (!animationsEnabled() || !isVisible(originEl)) return;
+  const rect = originEl.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.4;
+    const distance = 50 + Math.random() * 60;
+    const spark = document.createElement("span");
+    spark.className = "spark";
+    spark.style.left = `${cx}px`;
+    spark.style.top = `${cy}px`;
+    spark.style.setProperty("--dx", `${Math.cos(angle) * distance}px`);
+    spark.style.setProperty("--dy", `${Math.sin(angle) * distance - 20}px`);
+    spark.style.backgroundColor = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+    document.body.appendChild(spark);
+    setTimeout(() => spark.remove(), 1100);
+  }
+}
+
+// "🔥 10-day streak!" chip that floats up from the bottom of the screen
+function spawnFloatChip(text) {
+  if (!animationsEnabled()) return;
+  document.querySelectorAll(".float-chip").forEach(c => c.remove());
+  const chip = document.createElement("div");
+  chip.className = "float-chip";
+  chip.textContent = text;
+  document.body.appendChild(chip);
+  setTimeout(() => chip.remove(), 1800);
+}
+
+// ---------- Install app ----------
+let deferredInstallPrompt = null;
+const INSTALL_DISMISS_KEY = "fitPulseInstallDismissed";
+
+function isStandalone() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
+function installBannerDismissed() {
+  try {
+    const t = Number(localStorage.getItem(INSTALL_DISMISS_KEY) || 0);
+    return t > 0 && Date.now() - t < 3 * 86400000;
+  } catch {
+    return false;
+  }
+}
+
+function updateInstallUI() {
+  const installed = isStandalone();
+  if (installHeaderBtnEl) installHeaderBtnEl.hidden = installed;
+  if (installBannerEl) installBannerEl.hidden = installed || installBannerDismissed();
+  if (installMoreBtnEl) installMoreBtnEl.hidden = installed;
+  if (installedNoteEl) installedNoteEl.hidden = !installed;
+}
+
+function installHelp() {
+  const ua = navigator.userAgent || "";
+  const isIOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if (isIOS) {
+    return {
+      title: "Install on iPhone / iPad",
+      message: "1. Tap the Share button (square with an arrow) in Safari.\n2. Scroll down and tap “Add to Home Screen”.\n3. Tap “Add”.\n\nFitPulse then opens full screen like a normal app."
+    };
+  }
+  if (/Android/i.test(ua)) {
+    return {
+      title: "Install on Android",
+      message: "1. Tap the ⋮ menu at the top right of your browser.\n2. Tap “Install app” (or “Add to Home screen”).\n3. Tap “Install”."
+    };
+  }
+  return {
+    title: "Install on your computer",
+    message: "Click the install icon at the right end of the address bar, or open the browser menu and choose “Install FitPulse”."
+  };
+}
+
+async function handleInstall() {
+  if (deferredInstallPrompt) {
+    const promptEvent = deferredInstallPrompt;
+    deferredInstallPrompt = null;
+    promptEvent.prompt();
+    try {
+      const choice = await promptEvent.userChoice;
+      if (choice && choice.outcome === "accepted") showToast("Installing FitPulse…");
+    } catch {}
+    return;
+  }
+  const help = installHelp();
+  await openSheet({ title: help.title, message: help.message, confirmText: "Got it", cancelText: null });
+}
+
+document.querySelectorAll(".install-trigger").forEach(btn => btn.addEventListener("click", handleInstall));
+
+if (installDismissEl) {
+  installDismissEl.addEventListener("click", () => {
+    try { localStorage.setItem(INSTALL_DISMISS_KEY, String(Date.now())); } catch {}
+    updateInstallUI();
+  });
+}
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();               // keep the event so our own button can use it
+  deferredInstallPrompt = e;
+  updateInstallUI();
+});
+
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  updateInstallUI();
+  showToast("FitPulse installed ✓");
+});
+
+// Offline support + required for the browser's install prompt
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}
 
 // Routine Management
 function renderRoutineTabs() {
@@ -455,7 +612,7 @@ function renderBadges(routine, currentStreak, totalWorkouts) {
     // Make sure the person can actually see the badge that just unlocked
     const firstAnimated = badgesGridEl.querySelector(".badge-just-unlocked");
     if (firstAnimated) {
-      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const reduceMotion = !animationsEnabled();
       firstAnimated.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center", inline: "center" });
     }
   }
@@ -486,8 +643,6 @@ function playStreakAnimations(streakGrew, goalReached) {
 }
 
 // Celebration Pop-up & Confetti Animation
-const CONFETTI_COLORS = ["#38e6b0", "#68a5ff", "#f4bd4f", "#a66cff", "#ff6b7a"];
-
 function triggerCelebration(title, eyebrow, streakText, descText, icon, isGoal = false) {
   celebrationStreakEl.textContent = icon || streakText;
   document.querySelector(".celebration-eyebrow").textContent = eyebrow;
@@ -616,7 +771,9 @@ function renderCalendar() {
     cell.className = "day";
     cell.dataset.date = dateString;
     cell.textContent = day;
-    cell.setAttribute("tabindex", "0");
+    const isToday = dateString === todayStr;
+    cell.setAttribute("tabindex", isToday ? "0" : "-1");
+    if (!isToday) cell.setAttribute("aria-disabled", "true");
 
     if (dateString === todayStr) cell.classList.add("today");
     if (routine.completed.includes(dateString)) {
@@ -626,13 +783,7 @@ function renderCalendar() {
       cell.classList.add("missed");
     }
 
-    const toggle = () => {
-      if (date > new Date(new Date().setHours(23, 59, 59, 999))) {
-        showToast("Cannot mark future dates.");
-        return;
-      }
-      toggleDate(dateString);
-    };
+    const toggle = () => toggleDate(dateString);
 
     cell.addEventListener("click", toggle);
     cell.addEventListener("keydown", (e) => {
@@ -647,10 +798,17 @@ function renderCalendar() {
 }
 
 function toggleDate(dateStr) {
+  // Only today can be marked or unmarked. Past and future days are locked.
+  if (dateStr !== getLocalDateString()) {
+    showToast(dateStr < getLocalDateString() ? "🔒 Past days are locked" : "🔒 Future days are locked");
+    haptic(30);
+    return;
+  }
   const routine = getActiveRoutine();
   const prevStreak = calculateCurrentStreak(routine);
   const isAdding = !routine.completed.includes(dateStr);
   const pendingCelebrations = [];
+  let streakAfter = prevStreak;
   let streakGrew = false;
   let goalJustReached = false;
   let hasBadgeAnimation = false;
@@ -663,6 +821,7 @@ function toggleDate(dateStr) {
     showToast("Attendance logged ✓");
 
     const newStreak = calculateCurrentStreak(routine);
+    streakAfter = newStreak;
     const totalWorkouts = routine.completed.length;
 
     if (!routine.unlockedBadges) routine.unlockedBadges = [];
@@ -731,6 +890,8 @@ function toggleDate(dateStr) {
     replayAnimClass(calendarEl.querySelector(`[data-date="${dateStr}"]`), "day-pop", 600);
     replayAnimClass(fabBtnEl, "fab-pop", 650);
     playStreakAnimations(streakGrew, goalJustReached);
+    sparkBurst(isVisible(fabBtnEl) ? fabBtnEl : attendanceBtnEl);
+    spawnFloatChip(streakGrew ? `🔥 ${streakAfter}-day streak!` : "Day logged ✓");
   }
 
   // Let the badge / streak animation play before the pop-up covers the screen
@@ -876,6 +1037,7 @@ document.getElementById("backupFile").addEventListener("change", (e) => {
         appState = normalizeState(parsed);
         saveAppState();
         applyTheme();
+        applyAnimPref();
         renderAll();
         showToast("Backup restored successfully ✓");
       } else {
@@ -911,6 +1073,7 @@ function runEpicIntroAnimation() {
   const canvas = document.getElementById("introCanvas");
   const line = document.getElementById("introLine");
   if (!intro || !canvas || !line) return;
+  if (!animationsEnabled()) { intro.remove(); return; }
 
   const ctx = canvas.getContext("2d");
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -1028,6 +1191,8 @@ function renderAll() {
 }
 
 applyTheme();
+applyAnimPref();
+updateInstallUI();
 setView("home", { scroll: false });
 renderAll();
 runEpicIntroAnimation();
