@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="FitPulse">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <title>FitPulse - Advanced Exercise & Habit Tracker</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=3">
   <link rel="icon" href="ChatGPT Image Sep 15, 2026, 07_30_50 PM.png">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -305,7 +305,7 @@
     </section>
 
     <footer data-view="more">
-      <span>FitPulse Performance Tracker &copy; 2026</span>
+      <span>FitPulse Performance Tracker &copy; 2026 · v3</span>
       <span>✓ End-to-End Local Storage & Privacy First</span>
     </footer>
   </main>
@@ -360,7 +360,16 @@
     </div>
   </div>
 
+  <!-- Plays every time you mark today -->
+  <div class="day-complete" id="dayComplete" aria-hidden="true">
+    <div class="day-complete-inner">
+      <div class="day-complete-flame" id="dayCompleteFlame">🔥</div>
+      <div class="day-complete-count" id="dayCompleteCount">1</div>
+      <div class="day-complete-label" id="dayCompleteLabel">day streak!</div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
-  <script src="script.js"></script>
+  <script src="script.js?v=3"></script>
 </body>
 </html>

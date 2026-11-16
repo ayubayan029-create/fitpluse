@@ -10,6 +10,15 @@ const BADGES = [
   { id: "total100", name: "Centurion", desc: "Reach 100 completed workout sessions.", icon: "👑", check: (_, total) => total >= 100 }
 ];
 
+const BADGE_TARGETS = {
+  streak3: { metric: "streak", target: 3 },
+  streak7: { metric: "streak", target: 7 },
+  streak21: { metric: "streak", target: 21 },
+  streak30: { metric: "streak", target: 30 },
+  total50: { metric: "total", target: 50 },
+  total100: { metric: "total", target: 100 }
+};
+
 const defaultState = {
   theme: "dark",
   animations: true,
@@ -89,6 +98,10 @@ const installedNoteEl = document.getElementById("installedNote");
 const installDismissEl = document.getElementById("installDismiss");
 const animToggleEl = document.getElementById("animToggle");
 const sheetActionsEl = document.getElementById("sheetActions");
+const dayCompleteEl = document.getElementById("dayComplete");
+const dayCompleteFlameEl = document.getElementById("dayCompleteFlame");
+const dayCompleteCountEl = document.getElementById("dayCompleteCount");
+const dayCompleteLabelEl = document.getElementById("dayCompleteLabel");
 
 const heightInputEl = document.getElementById("heightInput");
 const weightInputEl = document.getElementById("weightInput");
@@ -370,15 +383,84 @@ function sparkBurst(originEl, count = 16) {
   }
 }
 
-// "🔥 10-day streak!" chip that floats up from the bottom of the screen
-function spawnFloatChip(text) {
-  if (!animationsEnabled()) return;
-  document.querySelectorAll(".float-chip").forEach(c => c.remove());
-  const chip = document.createElement("div");
-  chip.className = "float-chip";
-  chip.textContent = text;
-  document.body.appendChild(chip);
-  setTimeout(() => chip.remove(), 1800);
+// Numbers that count up (JS driven, so it works everywhere)
+function animateNumber(el, from, to, duration = 800, delay = 0, suffix = "") {
+  if (!el) return;
+  cancelAnimationFrame(el._numRaf);
+  clearTimeout(el._numTimer);
+  el.textContent = `${to}${suffix}`;
+  if (!animationsEnabled() || from === to) return;
+
+  el.textContent = `${from}${suffix}`;
+  const start = performance.now() + delay;
+  const tick = (now) => {
+    if (now < start) { el._numRaf = requestAnimationFrame(tick); return; }
+    const t = Math.min((now - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = `${Math.round(from + (to - from) * eased)}${suffix}`;
+    if (t < 1) el._numRaf = requestAnimationFrame(tick);
+  };
+  el._numRaf = requestAnimationFrame(tick);
+  // safety net: if the tab was in the background, still end on the right number
+  el._numTimer = setTimeout(() => { el.textContent = `${to}${suffix}`; }, delay + duration + 150);
+}
+
+function setStat(el, value, suffix = "") {
+  const prev = el.dataset.val === undefined ? 0 : Number(el.dataset.val);
+  el.dataset.val = value;
+  animateNumber(el, prev, value, 800, 0, suffix);
+}
+
+// Big "day complete" moment: flame, rings, count-up (every time you mark today)
+let dayCompleteTimer = null;
+function playDayComplete(streak, grew = true) {
+  if (!animationsEnabled() || !dayCompleteEl) return;
+  dayCompleteLabelEl.textContent = !grew ? "day logged" : streak === 1 ? "day streak started!" : "day streak!";
+  dayCompleteEl.classList.remove("show");
+  void dayCompleteEl.offsetWidth;
+  dayCompleteEl.classList.add("show");
+  dayCompleteEl.setAttribute("aria-hidden", "false");
+  animateNumber(dayCompleteCountEl, Math.max(streak - 1, 0), streak, 700, 350);
+  sparkBurst(dayCompleteFlameEl, 24);
+  haptic([18, 30, 18]);
+  clearTimeout(dayCompleteTimer);
+  dayCompleteTimer = setTimeout(() => {
+    dayCompleteEl.classList.remove("show");
+    dayCompleteEl.setAttribute("aria-hidden", "true");
+  }, 2000);
+}
+
+// Tap a badge: unlocked ones pop + sparkle, locked ones shake and tell you what is left
+function onBadgeTap(div, badge, isUnlocked, streak, total) {
+  haptic(10);
+  if (animationsEnabled() && div.animate) {
+    div.animate(
+      isUnlocked
+        ? [{ transform: "translateY(-2px) scale(1)" }, { transform: "translateY(-9px) scale(1.12) rotate(-3deg)" }, { transform: "translateY(-2px) scale(1)" }]
+        : [{ transform: "translateX(0)" }, { transform: "translateX(-7px)" }, { transform: "translateX(6px)" }, { transform: "translateX(-4px)" }, { transform: "translateX(0)" }],
+      { duration: isUnlocked ? 560 : 420, easing: "ease-out" }
+    );
+  }
+  if (isUnlocked) {
+    sparkBurst(div, 12);
+    showToast(`${badge.icon} ${badge.name} earned`);
+  } else {
+    const t = BADGE_TARGETS[badge.id];
+    const left = Math.max(t.target - (t.metric === "streak" ? streak : total), 0);
+    const unit = t.metric === "streak" ? "day" : "workout";
+    showToast(`🔒 ${left} more ${unit}${left === 1 ? "" : "s"} to unlock ${badge.name}`);
+  }
+}
+
+// Tap the streak card to replay its animation
+const streakCardTapEl = document.querySelector(".streak-card");
+if (streakCardTapEl) {
+  streakCardTapEl.addEventListener("click", () => {
+    haptic(10);
+    replayAnimClass(streakCardTapEl, "streak-bump", 1200);
+    replayAnimClass(currentStreakEl, "number-pop", 800);
+    sparkBurst(streakCardTapEl.querySelector(".icon"), 14);
+  });
 }
 
 // ---------- Install app ----------
@@ -546,15 +628,25 @@ function renderStats() {
 
   const rate = Math.round((monthCompleted / daysInMonth) * 100);
 
-  currentStreakEl.textContent = current;
-  longestStreakEl.textContent = longest;
-  totalDaysEl.textContent = total;
-  completionRateEl.textContent = `${rate}%`;
+  setStat(currentStreakEl, current);
+  setStat(longestStreakEl, longest);
+  setStat(totalDaysEl, total);
+  setStat(completionRateEl, rate, "%");
+
+  const streakCardEl = document.querySelector(".streak-card");
+  if (streakCardEl) streakCardEl.classList.toggle("streak-alive", current > 0);
 
   const progress = Math.min((current / routine.goal) * 100, 100);
   progressTextEl.textContent = `${Math.min(current, routine.goal)} / ${routine.goal} days`;
   progressPercentEl.textContent = `${Math.round(progress)}%`;
-  progressBarEl.style.width = `${progress}%`;
+  if (!progressBarEl.dataset.ready) {
+    // first paint: start empty, then fill up so the bar visibly animates
+    progressBarEl.dataset.ready = "1";
+    progressBarEl.style.width = "0%";
+    requestAnimationFrame(() => requestAnimationFrame(() => { progressBarEl.style.width = `${progress}%`; }));
+  } else {
+    progressBarEl.style.width = `${progress}%`;
+  }
 
   if (current >= routine.goal) {
     goalMessageEl.textContent = `🎉 Goal reached! Outstanding consistency.`;
@@ -588,12 +680,26 @@ function renderBadges(routine, currentStreak, totalWorkouts) {
       animIndex++;
     }
     div.className = `badge-item ${isUnlocked ? "unlocked" : ""} ${shouldAnimate ? "badge-just-unlocked" : ""}`;
+    const target = BADGE_TARGETS[badge.id];
+    const value = target.metric === "streak" ? currentStreak : totalWorkouts;
+    const pct = Math.min((value / target.target) * 100, 100);
     div.innerHTML = `
       <div class="badge-icon">${badge.icon}</div>
       <div class="badge-title">${badge.name}</div>
       <div class="badge-desc">${badge.desc}</div>
+      ${isUnlocked
+        ? `<div class="badge-state">✓ Earned</div>`
+        : `<div class="badge-progress"><i></i></div><div class="badge-state">${Math.min(value, target.target)}/${target.target} ${target.metric === "streak" ? "days" : "workouts"}</div>`}
     `;
+    div.setAttribute("role", "button");
+    div.setAttribute("tabindex", "0");
+    div.addEventListener("click", () => onBadgeTap(div, badge, isUnlocked, currentStreak, totalWorkouts));
+    div.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onBadgeTap(div, badge, isUnlocked, currentStreak, totalWorkouts); }
+    });
     badgesGridEl.appendChild(div);
+    const barEl = div.querySelector(".badge-progress i");
+    if (barEl) requestAnimationFrame(() => requestAnimationFrame(() => { barEl.style.width = `${pct}%`; }));
     if (shouldAnimate) {
       setTimeout(() => div.classList.remove("badge-just-unlocked"), 1800);
     }
@@ -891,12 +997,12 @@ function toggleDate(dateStr) {
     replayAnimClass(fabBtnEl, "fab-pop", 650);
     playStreakAnimations(streakGrew, goalJustReached);
     sparkBurst(isVisible(fabBtnEl) ? fabBtnEl : attendanceBtnEl);
-    spawnFloatChip(streakGrew ? `🔥 ${streakAfter}-day streak!` : "Day logged ✓");
+    playDayComplete(streakAfter, streakGrew);
   }
 
   // Let the badge / streak animation play before the pop-up covers the screen
   if (pendingCelebrations.length) {
-    const delay = (hasBadgeAnimation || goalJustReached) ? 1400 : 0;
+    const delay = (animationsEnabled() && (hasBadgeAnimation || goalJustReached)) ? 2000 : 0;
     setTimeout(() => queueCelebrations(pendingCelebrations), delay);
   }
 }
